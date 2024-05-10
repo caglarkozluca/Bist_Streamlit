@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import datetime as dt
-import time
+
 
 # Döviz kurları için sembol
 usd_try_symbol = "USDTRY=X"
