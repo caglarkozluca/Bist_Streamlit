@@ -44,27 +44,23 @@ def calculate_moving_averages_currency(df, short_window, long_window, price_colu
 
     return df
 
+# Dosyadan liste okuyan fonksiyon
+def read_tickers_from_file(file_path):
+    with open(file_path, 'r') as f:
+        tickers = [line.strip() for line in f.readlines()]
+    return tickers
 
-# BIST 30 hisse senetlerinin listesi
-bist_30_tickers = [
-    "AKBNK.IS", "ARCLK.IS", "ASELS.IS", "BIMAS.IS", "DOHOL.IS",
-    "EKGYO.IS", "ENJSA.IS", "EREGL.IS", "FROTO.IS", "GARAN.IS",
-    "GUBRF.IS", "HEKTS.IS", "ISCTR.IS", "KCHOL.IS", "KOZAL.IS",
-    "KOZAA.IS", "PGSUS.IS", "SAHOL.IS", "SISE.IS",
-    "SODA.IS", "TCELL.IS", "THYAO.IS", "TOASO.IS", "TUPRS.IS",
-    "TAVHL.IS", "TKFEN.IS", "VESTL.IS", "YKBNK.IS", "YATAS.IS", "EGEEN.IS"
-]
+# BIST 50 hisse senetlerinin listesini dosyadan okuyun
+bist_50_tickers = read_tickers_from_file('bist_50_tickers.txt')
 
 # Sayfa seçimi için yan menü
-page = st.sidebar.selectbox("Sayfa Seçin", ["Teknik Analiz", "BIST Grafikleri", "Top 5 Table", "Deneme 4"])
-
-# İndirme sürecini hızlandırmak için tarih aralıklarını önceden hesaplayın
+page = st.sidebar.selectbox("Sayfa Seçin", ["Teknik Analiz", "Kazanç Tablosu", "BIST Hacim Grafikleri", "Hisse Artış/Azalış Yüzdesi"])
 
 end_date = pd.Timestamp.now()
 
 if page == "Teknik Analiz":
-    st.title("BIST 30 Hisse Senedi Analizi")
-    selected_ticker = st.selectbox("Hisse Senedi Seçin", bist_30_tickers)
+    st.title("Hisse Senedi Analizi")
+    selected_ticker = st.selectbox("Hisse Senedi Seçin", bist_50_tickers)
 
     date_range_options = ["1 Senelik", "3 Senelik", "5 Senelik"]
     selected_date_range = st.selectbox("Tarih Aralığını Seçin", date_range_options)
@@ -82,7 +78,7 @@ if page == "Teknik Analiz":
     if usd_try_data is None:
         st.warning("Dolar/TL kurunu alamadık. Lütfen daha sonra tekrar deneyin.")
 
-    # Hisse senedi verilerini bir kez indirin
+    # Hisse senedi verilerini indirin
     df = yf.download(selected_ticker, start=start_date, end=end_date)
     df['Date'] = pd.to_datetime(df.index)
     df.set_index('Date', inplace=True)
@@ -145,13 +141,14 @@ if page == "Teknik Analiz":
 
     st.pyplot(fig)
 
-elif page == "BIST Grafikleri":
-    st.title("BIST Grafikleri")
+elif page == "BIST Hacim Grafikleri":
+    st.title("BIST Hacim Grafikleri")
 
     user_input = st.text_input("Hisse Kodu Girin (ör. AKBNK)")
     
     date_range_options = ["1 Senelik", "3 Senelik", "5 Senelik"]
     selected_date_range = st.selectbox("Tarih Aralığını Seçin", date_range_options)
+    
 
     # Başlangıç tarihini seçilen aralığa göre ayarlayın
     if selected_date_range == "1 Senelik":
@@ -190,10 +187,10 @@ elif page == "BIST Grafikleri":
         except Exception:
                 st.warning("Bu hisse bulunamamıştır veya indirilemedi.")
 
-elif page == "Top 5 Table":
-    st.title("Top 5 Table")
+elif page == "Kazanç Tablosu":
+    st.title("Kazanç Tablosu Top 5")
 
-    selected_ticker = st.selectbox("Hisse Senedi Seçin", bist_30_tickers)
+    selected_ticker = st.selectbox("Hisse Senedi Seçin", bist_50_tickers)
 
     date_range_options = ["1 Senelik", "3 Senelik", "5 Senelik"]
     selected_date_range = st.selectbox("Tarih Aralığını Seçin", date_range_options)
@@ -254,4 +251,63 @@ elif page == "Top 5 Table":
         st.write("En Yüksek 5 Kazanç Kombinasyonu:")
         st.dataframe(top_5_gain)
 
+elif page == "Hisse Artış/Azalış Yüzdesi":
+    st.title("Hisse Artış/Azalış Yüzdesi")
 
+    # Kullanıcıdan tarih aralığını seçmesini isteyin
+    date_range_options = ["1 Ay", "3 Ay", "6 Ay", "Yıl Başından Beri", "1 Yıl", "3 Yıl", "5 Yıl"]
+    selected_date_range = st.selectbox("Tarih Aralığını Seçin", date_range_options)
+
+    # Başlangıç tarihini seçilen aralığa göre ayarlayın
+    if selected_date_range == "1 Ay":
+        start_date = end_date - pd.DateOffset(months=1)
+    elif selected_date_range == "3 Ay":
+        start_date = end_date - pd.DateOffset(months=3)
+    elif selected_date_range == "6 Ay":
+        start_date = end_date - pd.DateOffset(months=6)
+    elif selected_date_range == "Yıl Başından Beri":
+        start_date = pd.Timestamp(end_date.year, 1, 1)
+    elif selected_date_range == "1 Yıl":
+        start_date = end_date - pd.DateOffset(years=1)
+    elif selected_date_range == "3 Yıl":
+        start_date = end_date - pd.DateOffset(years=3)
+    elif selected_date_range == "5 Yıl":
+        start_date = end_date - pd.DateOffset(years=5)
+
+    # Hisselerin artış/azalış yüzdesini hesaplamak için bir sözlük oluşturun
+    performance_dict = {}
+
+    # Seçilen tarih aralığına göre hisse senetlerinin performansını hesaplayın
+    for ticker in bist_50_tickers:
+        try:
+            # Belirtilen tarih aralığında hisse senedinin kapanış fiyatlarını alın
+            df = yf.download(ticker, start=start_date, end=end_date)
+            if not df.empty:
+                # Başlangıç ve bitiş fiyatlarını alın
+                start_price = df.iloc[0]['Close']
+                end_price = df.iloc[-1]['Close']
+                # Artış/Azalış yüzdesini hesaplayın
+                price_change_percentage = ((end_price - start_price) / start_price) * 100
+                # Hisselerin artış/azalış yüzdesini sözlüğe ekleyin
+                performance_dict[ticker] = price_change_percentage
+        except Exception as e:
+            st.warning(f"{ticker} için veri alınamadı: {e}")
+
+    # Hisselerin artış/azalış yüzdesini büyükten küçüğe göre sıralayın
+    sorted_performance = sorted(performance_dict.items(), key=lambda x: x[1], reverse=False)
+
+    # Artış/Azalış yüzdesini görselleştirin
+    if sorted_performance:
+        fig, ax = plt.subplots(figsize=(10, len(sorted_performance) * 0.5))
+        tickers, percentages = zip(*sorted_performance)
+        colors = ['skyblue' if percentage >= 0 else 'lightcoral' for percentage in percentages]
+        ax.barh(tickers, percentages, color=colors)
+        for i, (ticker, percentage) in enumerate(sorted_performance):
+            ax.text(percentage, i, f"{percentage:.2f}%", ha='left', va='center')
+        ax.set_xlabel('Artış/Azalış Yüzdesi')
+        ax.set_ylabel('Hisse Senedi')
+        ax.set_title(f'{selected_date_range} Tarih Aralığındaki Hisselerin Artış/Azalış Yüzdesi')
+        plt.grid(True)
+        st.pyplot(fig)
+    else:
+        st.warning("Veri bulunamadı. Lütfen daha sonra tekrar deneyin.")
